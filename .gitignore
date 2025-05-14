@@ -1,0 +1,21 @@
+# node modules
+node_modules/
+
+# output build
+dist/
+
+# logs
+logs/
+*.log
+
+# dotenv
+.env
+
+# IDE settings
+.vscode/
+.idea/
+.DS_Store
+
+# temp
+*.tmp
+
