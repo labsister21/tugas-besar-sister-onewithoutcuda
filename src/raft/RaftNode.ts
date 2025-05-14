@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { KVStore } from '../kvstore/KVStore';
 import { Logger } from '../utils/Logger';
 import { LogEntry, NodeRole } from '../types/raft';
 
@@ -9,6 +10,7 @@ export class RaftNode {
   private log: LogEntry[] = [];
   private commitIndex = -1;
   private leaderId: string | null = null;
+  private leaderAddress: string | null = null;
 
   private electionTimeout?: NodeJS.Timeout;
   private heartbeatInterval?: NodeJS.Timeout;
@@ -22,6 +24,7 @@ export class RaftNode {
 
   constructor(
     private readonly id: string,
+    private readonly kvStore: KVStore,
     initialPeers: string[],
     private readonly logger: Logger,
     private readonly selfAddress: string
@@ -87,9 +90,7 @@ export class RaftNode {
         const prevLogTerm = this.log[prevLogIndex]?.term ?? 0;
         const entries = this.log.slice(next);
 
-        if (entries.length === 0) {
-          this.logger.log(`[${this.id}] Sending heartbeat to ${peer}`);
-        } else {
+        if (entries.length > 0) {
           this.logger.log(`[${this.id}] Sending ${entries.length} log entries to ${peer}`);
         }
 
@@ -97,6 +98,7 @@ export class RaftNode {
           .post(`http://${peer}/rpc/append-entries`, {
             term: this.term,
             leaderId: this.id,
+            leaderAddress: this.selfAddress,
             prevLogIndex,
             prevLogTerm,
             entries,
@@ -148,6 +150,24 @@ export class RaftNode {
         this.failedPeerCounts.delete(peer);
         this.logger.log(`[${this.id}] Applied log: removeMember ${peer}`);
       }
+    }
+
+    if (cmd === 'set') {
+      const [k, v] = args.join(':').split(':');
+      this.kvStore.set(k, v);
+      this.logger.log(`[${this.id}] Applied log: set ${k} = ${v}`);
+    }
+
+    if (cmd === 'del') {
+      const key = args.join(':');
+      this.kvStore.del(key);
+      this.logger.log(`[${this.id}] Applied log: del ${key}`);
+    }
+
+    if (cmd === 'append') {
+      const [k, v] = args.join(':').split(':');
+      this.kvStore.append(k, v);
+      this.logger.log(`[${this.id}] Applied log: append ${k} += ${v}`);
     }
 
     //
@@ -212,6 +232,7 @@ export class RaftNode {
         .post(`http://${peer}/rpc/append-entries`, {
           term: this.term,
           leaderId: this.id,
+          leaderAddress: this.selfAddress,
           prevLogIndex,
           prevLogTerm,
           entries
@@ -251,17 +272,20 @@ export class RaftNode {
   public receiveAppendEntries(params: {
     term: number;
     leaderId: string;
+    leaderAddress: string;
     entries: LogEntry[];
     prevLogIndex: number;
     prevLogTerm: number;
     leaderCommit: number;
   }): boolean {
-    const { term, leaderId, entries, prevLogIndex, prevLogTerm, leaderCommit } = params;
+    const { term, leaderId, leaderAddress, entries, prevLogIndex, prevLogTerm, leaderCommit } =
+      params;
 
     if (term < this.term) return false;
 
     this.term = term;
     this.leaderId = leaderId;
+    this.leaderAddress = leaderAddress;
     this.role = 'FOLLOWER';
     this.startElectionTimeout();
 
@@ -322,6 +346,22 @@ export class RaftNode {
     }
   }
 
+  public appendKVCommand(command: string) {
+    this.log.push({ term: this.term, command });
+    this.sendAppendEntriesNow();
+  }
+
+  public strlen(key: string): number {
+    return this.kvStore.strlen(key);
+  }
+
+  public getFromStore(key: string): string {
+    return this.kvStore.get(key);
+  }
+  public getKvStore(): KVStore {
+    return this.kvStore;
+  }
+
   public getRole(): NodeRole {
     return this.role;
   }
@@ -344,5 +384,9 @@ export class RaftNode {
 
   public getFailedPeerCounts(): Record<string, number> {
     return Object.fromEntries(this.failedPeerCounts);
+  }
+
+  public getLeaderAddress(): string | null {
+    return this.leaderAddress;
   }
 }

@@ -47,12 +47,14 @@ export const handleRemoveMember = (req: Request, res: Response) => {
 };
 
 export const handleAppendEntries = (req: Request, res: Response) => {
-  const { entries, term, leaderId, prevLogIndex, prevLogTerm, leaderCommit } = req.body;
+  const { entries, term, leaderId, leaderAddress, prevLogIndex, prevLogTerm, leaderCommit } =
+    req.body;
 
   if (
     !Array.isArray(entries) ||
     typeof term !== 'number' ||
     typeof leaderId !== 'string' ||
+    typeof leaderAddress !== 'string' ||
     typeof prevLogIndex !== 'number' ||
     typeof prevLogTerm !== 'number' ||
     typeof leaderCommit !== 'number'
@@ -64,6 +66,7 @@ export const handleAppendEntries = (req: Request, res: Response) => {
   const success = raftNode.receiveAppendEntries({
     term,
     leaderId,
+    leaderAddress,
     entries,
     prevLogIndex,
     prevLogTerm,

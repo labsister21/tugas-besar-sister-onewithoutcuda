@@ -9,6 +9,7 @@ import {
   handleRemoveMember,
   handleAppendEntries
 } from './RPCHandler';
+import { handleClientCommand, handlePing } from './ClientHandler';
 
 export let raftNode: RaftNode;
 
@@ -16,18 +17,17 @@ export function startServer(id: string, port: number, peers: string[]) {
   const app = express();
   app.use(json());
 
+  const kvStore = new KVStore();
   const logger = new Logger(id);
   const selfAddress = `localhost:${port}`;
 
-  raftNode = new RaftNode(id, peers, logger, selfAddress);
+  raftNode = new RaftNode(id, kvStore, peers, logger, selfAddress);
 
   if (peers.length === 0) {
     raftNode.forceBootstrapSelf();
   }
 
-  app.get('/ping', (_, res) => {
-    res.send('PONG');
-  });
+  app.get('/ping', handlePing);
 
   app.get('/status', (_, res) => {
     res.json({
@@ -36,18 +36,17 @@ export function startServer(id: string, port: number, peers: string[]) {
       leader: raftNode.getLeaderId(),
       term: raftNode.getTerm(),
       peers: raftNode.getPeerIds(),
-      logs: raftNode.getLogEntry()
+      logs: raftNode.getLogEntry(),
+      store: raftNode.getKvStore()
     });
-  });
-
-  app.get('/peers/status', (_, res) => {
-    res.json(raftNode.getFailedPeerCounts());
   });
 
   app.post('/rpc/request-vote', handleRequestVote);
   app.post('/rpc/join-cluster', handleJoinCluster);
   app.post('/rpc/remove-member', handleRemoveMember);
   app.post('/rpc/append-entries', handleAppendEntries);
+
+  app.post('/rpc/execute', handleClientCommand);
 
   app.listen(port, () => {
     console.log(`[${id}] Node running on port ${port}`);
