@@ -34,6 +34,7 @@ export function startServer(id: string, port: number, peers: string[]) {
       id,
       role: raftNode.getRole(),
       leader: raftNode.getLeaderId(),
+      selfAddress: raftNode.getSelfAddress(),
       term: raftNode.getTerm(),
       peers: raftNode.getPeerIds(),
       logs: raftNode.getLogEntry(),

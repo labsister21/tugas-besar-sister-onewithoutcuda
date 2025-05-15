@@ -389,4 +389,8 @@ export class RaftNode {
   public getLeaderAddress(): string | null {
     return this.leaderAddress;
   }
+
+  public getSelfAddress(): string {
+    return this.selfAddress;
+  }
 }

@@ -1,5 +1,6 @@
 {
   "watch": ["src"],
+  "ignore": ["src/client"],
   "ext": "ts",
-  "exec": "ts-node src/index.ts"
+  "exec": "ts-node src/index-server.ts"
 }
