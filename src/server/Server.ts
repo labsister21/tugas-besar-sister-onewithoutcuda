@@ -3,23 +3,23 @@ import { json } from 'body-parser';
 import { KVStore } from '../kvstore/KVStore';
 import { Logger } from '../utils/Logger';
 import { RaftNode } from '../raft/RaftNode';
+import rpcHandler from './RPCHandler';
 import {
-  handleRequestVote,
+  handleClientCommand,
   handleJoinCluster,
-  handleRemoveMember,
-  handleAppendEntries
-} from './RPCHandler';
-import { handleClientCommand, handlePing } from './ClientHandler';
+  handlePing,
+  handleRemoveMember
+} from './ClientHandler';
 
 export let raftNode: RaftNode;
 
-export function startServer(id: string, port: number, peers: string[]) {
+export function startServer(id: string, port: number, peers: string[], host: string) {
   const app = express();
   app.use(json());
 
   const kvStore = new KVStore();
   const logger = new Logger(id);
-  const selfAddress = `localhost:${port}`;
+  const selfAddress = `${host}:${port}`;
 
   raftNode = new RaftNode(id, kvStore, peers, logger, selfAddress);
 
@@ -42,12 +42,11 @@ export function startServer(id: string, port: number, peers: string[]) {
     });
   });
 
-  app.post('/rpc/request-vote', handleRequestVote);
-  app.post('/rpc/join-cluster', handleJoinCluster);
-  app.post('/rpc/remove-member', handleRemoveMember);
-  app.post('/rpc/append-entries', handleAppendEntries);
+  app.post('/join-cluster', handleJoinCluster);
+  app.post('/remove-member', handleRemoveMember);
+  app.post('/execute', handleClientCommand);
 
-  app.post('/rpc/execute', handleClientCommand);
+  app.post('/rpc', rpcHandler);
 
   app.listen(port, () => {
     console.log(`[${id}] Node running on port ${port}`);

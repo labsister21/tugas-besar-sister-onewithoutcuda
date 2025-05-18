@@ -46,3 +46,37 @@ export const handleClientCommand = async (req: Request, res: Response) => {
       return;
   }
 };
+
+export const handleJoinCluster = (req: Request, res: Response) => {
+  const { address } = req.body;
+  if (typeof address !== 'string') {
+    res.status(400).json({ error: 'Invalid address format' });
+    return;
+  }
+
+  if (raftNode.getRole() !== 'LEADER') {
+    res.status(403).json({ error: 'Only leader can accept join requests' });
+    return;
+  }
+
+  raftNode.addPeer(address, true);
+  raftNode.appendAddMemberLog(address);
+  res.status(200).json({ success: true });
+};
+
+export const handleRemoveMember = (req: Request, res: Response) => {
+  const { address } = req.body;
+
+  if (typeof address !== 'string') {
+    res.status(400).json({ error: 'Invalid address format' });
+    return;
+  }
+
+  if (raftNode.getRole() !== 'LEADER') {
+    res.status(403).json({ error: 'Only leader can remove members' });
+    return;
+  }
+
+  raftNode.appendRemoveMemberLog(address);
+  res.status(200).json({ success: true });
+};

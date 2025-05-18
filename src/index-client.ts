@@ -3,15 +3,24 @@ import { RaftClient } from './client/RaftClient';
 
 const args = process.argv.slice(2);
 if (args.length !== 1) {
-  console.error('Usage: ts-node index-client.ts <seed-node>');
+  console.error('Usage: ts-node index-client.ts <seed-host:port>');
   process.exit(1);
 }
 
-const seedNode = args[0];
+const seedArg = args[0];
+const [host, portStr] = seedArg.includes(':') ? seedArg.split(':') : ['localhost', seedArg];
+const port = parseInt(portStr, 10);
+
+if (isNaN(port)) {
+  console.error('Invalid port:', portStr);
+  process.exit(1);
+}
+
+const seedAddress = `${host}:${port}`;
 const client = new RaftClient();
 
 (async () => {
-  await client.initializeFromSeedNode(seedNode);
+  await client.initializeFromSeedNode(seedAddress);
 
   const rl = readline.createInterface({
     input: process.stdin,

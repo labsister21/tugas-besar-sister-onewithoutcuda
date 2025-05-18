@@ -5,11 +5,11 @@ export class RaftClient {
   private nodes: string[] = [];
 
   async addMember(address: string) {
-    await this.sendAdminCommand('/rpc/join-cluster', { address }, 'Member added');
+    await this.sendAdminCommand('/join-cluster', { address }, 'Member added');
   }
 
   async removeMember(address: string) {
-    await this.sendAdminCommand('/rpc/remove-member', { address }, 'Member removed');
+    await this.sendAdminCommand('/remove-member', { address }, 'Member removed');
   }
 
   async getPeers() {
@@ -99,7 +99,7 @@ export class RaftClient {
     if (!this.currentLeader) {
       const random = this.nodes[Math.floor(Math.random() * this.nodes.length)];
       try {
-        const res = await axios.post(`http://${random}/rpc/execute`, payload);
+        const res = await axios.post(`http://${random}/execute`, payload);
         if (res.data.result !== undefined) {
           this.currentLeader = random;
           console.log('→', res.data.result);
@@ -113,7 +113,7 @@ export class RaftClient {
 
     if (this.currentLeader) {
       try {
-        const res = await axios.post(`http://${this.currentLeader}/rpc/execute`, payload);
+        const res = await axios.post(`http://${this.currentLeader}/execute`, payload);
         if (res.data.result !== undefined) {
           console.log('→', res.data.result);
           return;

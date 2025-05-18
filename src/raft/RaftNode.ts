@@ -95,17 +95,24 @@ export class RaftNode {
         }
 
         axios
-          .post(`http://${peer}/rpc/append-entries`, {
-            term: this.term,
-            leaderId: this.id,
-            leaderAddress: this.selfAddress,
-            prevLogIndex,
-            prevLogTerm,
-            entries,
-            leaderCommit: this.commitIndex
+          .post(`http://${peer}/rpc`, {
+            jsonrpc: '2.0',
+            method: 'appendEntries',
+            params: [
+              {
+                term: this.term,
+                leaderId: this.id,
+                leaderAddress: this.selfAddress,
+                prevLogIndex,
+                prevLogTerm,
+                entries,
+                leaderCommit: this.commitIndex
+              }
+            ],
+            id: 1
           })
           .then((res) => {
-            if (res.data.success) {
+            if (res.data.result?.success) {
               this.failedPeerCounts.set(peer, 0);
               this.nextIndex.set(peer, next + entries.length);
               this.matchIndex.set(peer, next + entries.length - 1);
@@ -169,8 +176,6 @@ export class RaftNode {
       this.kvStore.append(k, v);
       this.logger.log(`[${this.id}] Applied log: append ${k} += ${v}`);
     }
-
-    //
   }
 
   private checkCommit() {
@@ -229,16 +234,24 @@ export class RaftNode {
       const entries = this.log.slice(next);
 
       axios
-        .post(`http://${peer}/rpc/append-entries`, {
-          term: this.term,
-          leaderId: this.id,
-          leaderAddress: this.selfAddress,
-          prevLogIndex,
-          prevLogTerm,
-          entries
+        .post(`http://${peer}/rpc`, {
+          jsonrpc: '2.0',
+          method: 'appendEntries',
+          params: [
+            {
+              term: this.term,
+              leaderId: this.id,
+              leaderAddress: this.selfAddress,
+              prevLogIndex,
+              prevLogTerm,
+              entries,
+              leaderCommit: this.commitIndex
+            }
+          ],
+          id: 1
         })
         .then((res) => {
-          if (res.data.success) {
+          if (res.data.result?.success) {
             this.failedPeerCounts.set(peer, 0);
             this.nextIndex.set(peer, next + entries.length);
             this.matchIndex.set(peer, next + entries.length - 1);
@@ -321,11 +334,13 @@ export class RaftNode {
     await Promise.all(
       peersArray.map(async (peer) => {
         try {
-          const res = await axios.post(`http://${peer}/rpc/request-vote`, {
-            term: this.term,
-            candidateId: this.id
+          const res = await axios.post(`http://${peer}/rpc`, {
+            jsonrpc: '2.0',
+            method: 'requestVote',
+            params: [{ term: this.term, candidateId: this.id }],
+            id: 1
           });
-          if (res.data.voteGranted) grantedVotes++;
+          if (res.data.result?.voteGranted) grantedVotes++;
         } catch {
           this.logger.log(`[${this.id}] Failed to request vote from ${peer}`);
         }
@@ -358,6 +373,7 @@ export class RaftNode {
   public getFromStore(key: string): string {
     return this.kvStore.get(key);
   }
+
   public getKvStore(): KVStore {
     return this.kvStore;
   }
