@@ -113,10 +113,18 @@ export class RaftClient {
 
     if (this.currentLeader) {
       try {
-        const res = await axios.post(`http://${this.currentLeader}/execute`, payload);
-        if (res.data.result !== undefined) {
-          console.log('→', res.data.result);
-          return;
+        if (command === 'ping') {
+          const res = await axios.get(`http://${this.currentLeader}/ping`)
+          if (res.data !== undefined) {
+            console.log(`→ ${res.data}`);
+            return;
+          }
+        } else {
+          const res = await axios.post(`http://${this.currentLeader}/execute`, payload);
+          if (res.data.result !== undefined) {
+            console.log(`→ ${res.data.result}`);
+            return;
+          }
         }
       } catch (err: any) {
         const leaderHint = err?.response?.data?.leader;

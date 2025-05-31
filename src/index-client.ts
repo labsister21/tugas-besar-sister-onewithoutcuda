@@ -42,7 +42,7 @@ const client = new RaftClient();
           await client.sendCommand(cmd, args[0], args[1]);
           break;
         case 'get':
-        case 'strlen':
+        case 'strln':
         case 'del':
           await client.sendCommand(cmd, args[0]);
           break;
@@ -57,6 +57,9 @@ const client = new RaftClient();
           break;
         case 'status':
           await client.getNodeStatus(args[0]);
+          break;
+        case 'ping':
+          await client.sendCommand(cmd);
           break;
         case 'exit':
           rl.close();
