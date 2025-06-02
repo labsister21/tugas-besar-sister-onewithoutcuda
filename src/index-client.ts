@@ -58,13 +58,54 @@ const client = new RaftClient();
         case 'status':
           await client.getNodeStatus(args[0]);
           break;
+        case 'request-log':
+          await client.getLog();
+          break;
+        case 'status-client':
+          await client.showClientData();
+          break;
+        case 'show-heartbeat':
+          await client.setHeartbeat(true);
+          break;
+        case 'hide-heartbeat':
+          await client.setHeartbeat(false);
+          break;
+        case 'set-leader':
+          await client.setLeaderAddress(args[0]);
+          break;
+        case 'ping':
+          await client.ping();
+          break;
         case 'exit':
           rl.close();
           return;
         case 'help':
-          console.log(
-            'Commands: set, get, del, append, strlen, add-member, remove-member, peers, status <addr>, exit'
-          );
+          console.log(`
+Available Commands:
+  set <key> <value>         Set a key to a value
+  get <key>                 Get the value of a key
+  del <key>                 Delete a key
+  append <key> <value>      Append a value to a key
+  strlen <key>              Get length of value stored in a key
+          
+Cluster Management:
+  add-member <host:port>    Add a new node to the cluster
+  remove-member <host:port> Remove a node from the cluster
+  peers                     Show current known peers
+          
+Monitoring & Debugging:
+  status [host:port]        Get status of a node
+  request-log               Get log entries from leader node
+  ping                      Ping the leader node
+          
+Other:
+  help                      Show this help menu
+  exit                      Exit the CLI
+  status-client             Show current client data
+  set-leader <host:port>    Set the current leader address
+  show-heartbeat            Show heartbeat visibility (in log server)
+  hide-heartbeat            Hide heartbeat visibility (in log server)
+        `);
           break;
         default:
           console.log('Unknown command');

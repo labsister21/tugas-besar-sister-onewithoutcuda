@@ -6,6 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "server:dev": "nodemon",
+    "server:start": "node dist/index-server.js",
+    "client:start": "node dist/index-client.js",
     "client:dev": "ts-node src/index-client.ts",
     "build": "tsc",
     "start": "node dist/index.js",

@@ -5,14 +5,17 @@ export class KVStore {
     this.store[key] = value;
   }
 
-  get(key: string): string {
-    return this.store[key] || '';
+  get(key: string): string | null {
+    return this.store.hasOwnProperty(key) ? this.store[key] : null;
   }
 
-  del(key: string): string {
-    const val = this.store[key];
-    delete this.store[key];
-    return val || '';
+  del(key: string): string | null {
+    if (this.store.hasOwnProperty(key)) {
+      const val = this.store[key];
+      delete this.store[key];
+      return val;
+    }
+    return null;
   }
 
   append(key: string, value: string) {
