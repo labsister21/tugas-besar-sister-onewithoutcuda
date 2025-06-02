@@ -53,8 +53,9 @@ export const handleClientCommand = async (req: Request, res: Response) => {
       res.json({ result: raftNode.getFromStore(key) ?? '' });
       return;
     case 'del':
+      const oldValue = raftNode.getFromStore(key) ?? '';
       raftNode.appendKVCommand(`del:${key}`);
-      res.json({ result: 'OK' });
+      res.json({ result: `"${oldValue}"` });
       return;
     case 'append':
       const valueExisting = raftNode.getFromStore(key);
@@ -64,7 +65,7 @@ export const handleClientCommand = async (req: Request, res: Response) => {
       raftNode.appendKVCommand(`append:${key}:${value}`);
       res.json({ result: 'OK' });
       return;
-    case 'strlen':
+    case 'strln':
       res.json({ result: raftNode.strlen(key) });
       return;
     default:
