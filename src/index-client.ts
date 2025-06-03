@@ -64,6 +64,9 @@ const client = new RaftClient();
         case 'status-client':
           await client.showClientData();
           break;
+        case 'refresh-client':
+          await client.refreshStatus();
+          break;
         case 'show-heartbeat':
           await client.setHeartbeat(true);
           break;
@@ -86,7 +89,7 @@ Available Commands:
   get <key>                 Get the value of a key
   del <key>                 Delete a key
   append <key> <value>      Append a value to a key
-  strlen <key>              Get length of value stored in a key
+  strln <key>              Get length of value stored in a key
           
 Cluster Management:
   add-member <host:port>    Add a new node to the cluster
@@ -102,6 +105,7 @@ Other:
   help                      Show this help menu
   exit                      Exit the CLI
   status-client             Show current client data
+  refresh-client            Refresh client data from the leader
   set-leader <host:port>    Set the current leader address
   show-heartbeat            Show heartbeat visibility (in log server)
   hide-heartbeat            Hide heartbeat visibility (in log server)

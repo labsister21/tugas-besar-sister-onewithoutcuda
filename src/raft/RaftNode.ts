@@ -27,6 +27,10 @@ export class RaftNode {
   private nextIndex: Map<string, number> = new Map();
   private matchIndex: Map<string, number> = new Map();
 
+  private readonly BASE_ELECTION_TIMEOUT_MIN = 150;
+  private readonly BASE_ELECTION_TIMEOUT_MAX = 300;
+  private electionBackoffMultiplier = 1;
+
   private showHeartbeat: boolean = false;
 
   constructor(
@@ -41,7 +45,15 @@ export class RaftNode {
 
   private startElectionTimeout() {
     this.clearTimeouts();
-    const timeout = 200 + Math.random() * 200;
+    const min = this.BASE_ELECTION_TIMEOUT_MIN * this.electionBackoffMultiplier;
+    const max = this.BASE_ELECTION_TIMEOUT_MAX * this.electionBackoffMultiplier;
+    const timeout = min + Math.random() * (max - min);
+    // const timeout = 150 + Math.random() * 150;
+
+    // this.logger.log(
+    //   `Starting election timeout: ${Math.floor(timeout)}ms)`
+    // );
+
     this.electionTimeout = setTimeout(() => {
       this.logger.log(`Election timeout — assuming leader is dead`);
       this.startElection();
@@ -163,7 +175,11 @@ export class RaftNode {
       command: `config:joint:${[...combined].join(',')}|${newPeers.join(',')}`
     };
     this.log.push(entry);
-    this.sendAppendEntriesNow();
+    if (this.peers.size === 0) {
+      this.checkCommit();
+    } else {
+      this.sendAppendEntriesNow();
+    }
   }
 
   public finalizeNewConfig(newPeers: string[]) {
@@ -465,6 +481,14 @@ export class RaftNode {
 
     if (term < this.term) return false;
 
+    if (entries.length > 0) {
+      this.logger.log(
+        `Received ${entries.length} entries from ${leaderId} (${leaderAddress}) for term ${term}`
+      );
+    } else if (entries.length === 0 && this.showHeartbeat) {
+      this.logger.log(`Received heartbeat from ${leaderId} (${leaderAddress}) for term ${term}`);
+    }
+
     if (prevLogIndex === -1) {
       this.votedFor = null;
       this.log = [];
@@ -536,9 +560,11 @@ export class RaftNode {
     const majority = Math.floor((totalPeers + 1) / 2) + 1;
     if (grantedVotes >= majority) {
       this.logger.log(`Achieved majority vote, becoming LEADER`);
+      this.electionBackoffMultiplier = 1;
       this.becomeLeader();
     } else {
       this.logger.log(`Election failed (got ${grantedVotes}/${totalPeers + 1}) — retrying`);
+      this.electionBackoffMultiplier *= 2;
       this.role = 'FOLLOWER';
       this.startElectionTimeout();
     }
@@ -546,7 +572,11 @@ export class RaftNode {
 
   public appendKVCommand(command: string) {
     this.log.push({ term: this.term, command });
-    this.sendAppendEntriesNow();
+    if (this.peers.size === 0) {
+      this.checkCommit();
+    } else {
+      this.sendAppendEntriesNow();
+    }
   }
 
   public strlen(key: string): number {

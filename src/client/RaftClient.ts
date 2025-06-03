@@ -152,7 +152,7 @@ export class RaftClient {
     }
   }
 
-  async showClientData() {
+  async refreshStatus() {
     if (!this.currentLeaderAddress) {
       console.log('No current leader to show client data');
       return;
@@ -167,9 +167,13 @@ export class RaftClient {
       this.nodes = [self, ...peers];
       this.currentLeaderAddress = leaderAddress;
       this.currentLeaderId = leader;
+      console.log('Updated client data');
     } catch {
       console.log(`Failed to refresh client data`);
     }
+  }
+
+  async showClientData() {
     console.log('Current leader id:', this.currentLeaderId);
     console.log('Current leader address:', this.currentLeaderAddress);
     console.log('Known nodes:', this.nodes.join(', '));

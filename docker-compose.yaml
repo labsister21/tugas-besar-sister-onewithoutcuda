@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  node1:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: node1
+    cap_add:
+      - NET_ADMIN
+    command: ['node1', '8081', 'node1', 'node2:8082,node3:8083,node4:8084']
+    networks:
+      raftnet:
+        aliases:
+          - node1
+    ports:
+      - '8081:8081'
+
+  node2:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: node2
+    cap_add:
+      - NET_ADMIN
+    command: ['node2', '8082', 'node2', 'node1:8081,node3:8083,node4:8084']
+    networks:
+      raftnet:
+        aliases:
+          - node2
+    ports:
+      - '8082:8082'
+
+  node3:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: node3
+    cap_add:
+      - NET_ADMIN
+    command: ['node3', '8083', 'node3', 'node1:8081,node2:8082,node4:8084']
+    networks:
+      raftnet:
+        aliases:
+          - node3
+    ports:
+      - '8083:8083'
+
+  node4:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: node4
+    cap_add:
+      - NET_ADMIN
+    command: ['node4', '8084', 'node4', 'node1:8081,node2:8082,node3:8083']
+    networks:
+      raftnet:
+        aliases:
+          - node4
+    ports:
+      - '8084:8084'
+
+  node5:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: node5
+    cap_add:
+      - NET_ADMIN
+    command: ['node5', '8085', 'node5']
+    networks:
+      raftnet:
+        aliases:
+          - node5
+    ports:
+      - '8085:8085'
+
+  # client:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.client
+  #   container_name: raft_cli
+  #   cap_add:
+  #     - NET_ADMIN
+  #   command: ['node1:8081'] 
+  #   networks:
+  #     raftnet:
+  #   stdin_open: true
+  #   tty: true
+
+networks:
+  raftnet:
