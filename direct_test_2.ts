@@ -1,8 +1,8 @@
 import axios, { AxiosError } from 'axios';
 
-const LEADER_API_BASE_URL = 'http://node2:8082';
-const NODE_TO_REMOVE_ADDRESS = 'node3:8083';
-const NODE_TO_ADD_ADDRESS = 'node5:8085';
+const LEADER_API_BASE_URL = 'http://node3:8083';
+const NODE_TO_REMOVE_ADDRESS = 'node5:8085';
+const NODE_TO_ADD_ADDRESS = 'node6:8086';
 
 const HTTP_REQUEST_TIMEOUT = 7000;
 

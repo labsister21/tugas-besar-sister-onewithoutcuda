@@ -682,9 +682,9 @@ export class RaftNode {
     }
 
     const newLogIndex = this.log.length;
-    this.log.push({ term: this.term, command: commandString }); //
+    this.log.push({ term: this.term, command: commandString }); 
     this.logger.log(
-      `Proposed command "</span>{commandString}" at index ${newLogIndex} in term ${this.term}`
+      `Proposed command ${commandString} at index ${newLogIndex} in term ${this.term}`
     );
 
     if (this.peers.size === 0) {
@@ -702,7 +702,7 @@ export class RaftNode {
         if (this.lastApplied >= newLogIndex) {
           clearInterval(intervalId);
           this.logger.log(
-            `Command at index <span class="math-inline">\{newLogIndex\} \("</span>{commandString}") successfully applied.`
+            `Command at index ${newLogIndex} ${commandString} successfully applied.`
           );
           resolve({ success: true, result: 'OK_APPLIED' });
         } else if (this.role !== 'LEADER') {
@@ -712,7 +712,7 @@ export class RaftNode {
         } else if (timeWaitedMs >= maxWaitMs) {
           clearInterval(intervalId);
           this.logger.log(
-            `Timeout waiting for log <span class="math-inline">\{newLogIndex\} \("</span>{commandString}") to apply. Last applied: ${this.lastApplied}`
+            `Timeout waiting for log ${newLogIndex} ${commandString} to apply. Last applied: ${this.lastApplied}`
           );
           reject(new Error(`Timeout waiting for command at index ${newLogIndex} to be applied`));
         }
