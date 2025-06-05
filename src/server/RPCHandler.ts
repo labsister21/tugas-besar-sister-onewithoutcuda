@@ -4,15 +4,23 @@ import { Request, Response } from 'express';
 
 const server = new jayson.Server({
   requestVote: async ([params]: [any]) => {
-    const { term, candidateId, candidateAddress } = params;
+    const { term, candidateId, candidateAddress, lastLogIndex, lastLogTerm } = params;
     if (
       typeof term !== 'number' ||
       typeof candidateId !== 'string' ||
-      typeof candidateAddress !== 'string'
+      typeof candidateAddress !== 'string' ||
+      typeof lastLogIndex !== 'number' ||
+      typeof lastLogTerm !== 'number'
     ) {
       throw new Error('Invalid vote request format');
     }
-    const voteGranted = raftNode.receiveVoteRequest(term, candidateId, candidateAddress);
+    const voteGranted = raftNode.receiveVoteRequest(
+      term,
+      candidateId,
+      candidateAddress,
+      lastLogIndex,
+      lastLogIndex
+    );
     return { voteGranted };
   },
 
