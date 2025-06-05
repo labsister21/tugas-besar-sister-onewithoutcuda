@@ -27,8 +27,10 @@ export class RaftNode {
   private nextIndex: Map<string, number> = new Map();
   private matchIndex: Map<string, number> = new Map();
 
-  private readonly BASE_ELECTION_TIMEOUT_MIN = 400;
-  private readonly BASE_ELECTION_TIMEOUT_MAX = 800;
+  private inflightRequests: Map<string, boolean> = new Map();
+
+  private readonly BASE_ELECTION_TIMEOUT_MIN = 5000;
+  private readonly BASE_ELECTION_TIMEOUT_MAX = 10000;
   private electionBackoffMultiplier = 1;
 
   private showHeartbeat: boolean = false;
@@ -72,8 +74,8 @@ export class RaftNode {
     term: number,
     candidateId: string,
     candidateAddress: string,
-    candidateLastLogIndex: number, // PARAMETER BARU
-    candidateLastLogTerm: number // PARAMETER BARU
+    candidateLastLogIndex: number,
+    candidateLastLogTerm: number
   ): boolean {
     if (!this.peers.has(candidateAddress)) {
       return false;
@@ -141,6 +143,9 @@ export class RaftNode {
     this.clearTimeouts();
     this.heartbeatInterval = setInterval(() => {
       for (const peer of this.peers) {
+        if (this.inflightRequests.get(peer)) {
+          continue;
+        }
         const next = this.nextIndex.get(peer) ?? this.log.length;
         const prevLogIndex = next - 1;
         const prevLogTerm = this.log[prevLogIndex]?.term ?? 0;
@@ -154,6 +159,8 @@ export class RaftNode {
             this.logger.log(`Heartbeat: No new entries to send to ${peer}`);
           }
         }
+
+        this.inflightRequests.set(peer, true);
 
         axios
           .post(
@@ -173,7 +180,7 @@ export class RaftNode {
                 }
               ],
               id: 1
-            },
+            }
             // { timeout: 200 }
           )
           .then((res) => {
@@ -194,6 +201,9 @@ export class RaftNode {
               // this.nextIndex.set(peer, 0);
               // this.matchIndex.set(peer, -1);
             }
+          })
+          .finally(() => {
+            this.inflightRequests.set(peer, false);
           });
       }
     }, 100);
@@ -309,6 +319,7 @@ export class RaftNode {
         }
         this.peers = new Set([...combinedP].filter((p) => p !== this.selfAddress));
         this.logger.log(`Entered JOINT consensus with peers: ${[...combinedP].join(', ')}`);
+        // this.finalizeNewConfig([...newP]);
       } else if (stage === 'new') {
         const newP = new Set(peersStr.split(','));
         this.configStage = 'stable';
@@ -444,6 +455,9 @@ export class RaftNode {
 
   private sendAppendEntriesNow() {
     for (const peer of this.peers) {
+      if (this.inflightRequests.get(peer)) {
+        continue;
+      }
       const next = this.nextIndex.get(peer) ?? this.log.length;
       const prevLogIndex = next - 1;
       const prevLogTerm = this.log[prevLogIndex]?.term ?? 0;
@@ -452,6 +466,8 @@ export class RaftNode {
       if (entries.length > 0) {
         this.logger.log(`Sending ${entries.length} log entries to ${peer}`);
       }
+
+      this.inflightRequests.set(peer, true);
 
       axios
         .post(
@@ -471,7 +487,7 @@ export class RaftNode {
               }
             ],
             id: 1
-          },
+          }
           // { timeout: 200 }
         )
         .then((res) => {
@@ -492,6 +508,9 @@ export class RaftNode {
             // this.nextIndex.set(peer, 0);
             // this.matchIndex.set(peer, -1);
           }
+        })
+        .finally(() => {
+          this.inflightRequests.set(peer, false);
         });
     }
   }
@@ -598,7 +617,7 @@ export class RaftNode {
                 }
               ],
               id: 1
-            },
+            }
             // { timeout: 200 }
           );
           if (res.data.result?.voteGranted) grantedVotes++;
@@ -616,10 +635,65 @@ export class RaftNode {
       this.becomeLeader();
     } else {
       this.logger.log(`Election failed (got ${grantedVotes}/${totalPeers + 1}) — retrying`);
-      // this.electionBackoffMultiplier *= 2;
+      this.electionBackoffMultiplier *= 2;
       this.role = 'FOLLOWER';
       this.startElectionTimeout();
     }
+  }
+
+  public async proposeCommand(commandString: string): Promise<{
+    success: boolean;
+    result?: any;
+    error?: string;
+    leaderHint?: { leaderId: string | null; leaderAddress: string | null };
+  }> {
+    if (this.role !== 'LEADER') {
+      this.logger.log(`Node ${this.id} is not leader, cannot propose command: ${commandString}`);
+      return {
+        success: false,
+        error: 'Not a leader',
+        leaderHint: { leaderId: this.leaderId, leaderAddress: this.leaderAddress }
+      };
+    }
+
+    const newLogIndex = this.log.length;
+    this.log.push({ term: this.term, command: commandString }); //
+    this.logger.log(
+      `Proposed command "</span>{commandString}" at index ${newLogIndex} in term ${this.term}`
+    );
+
+    if (this.peers.size === 0) {
+      this.checkCommit();
+    } else {
+      this.sendAppendEntriesNow();
+    }
+
+    return new Promise((resolve, reject) => {
+      const checkIntervalMs = 30;
+      const maxWaitMs = 7000;
+      let timeWaitedMs = 0;
+
+      const intervalId = setInterval(() => {
+        if (this.lastApplied >= newLogIndex) {
+          clearInterval(intervalId);
+          this.logger.log(
+            `Command at index <span class="math-inline">\{newLogIndex\} \("</span>{commandString}") successfully applied.`
+          );
+          resolve({ success: true, result: 'OK_APPLIED' });
+        } else if (this.role !== 'LEADER') {
+          clearInterval(intervalId);
+          this.logger.log(`Lost leadership while waiting for log ${newLogIndex} to apply.`);
+          reject(new Error('Lost leadership while waiting for command application'));
+        } else if (timeWaitedMs >= maxWaitMs) {
+          clearInterval(intervalId);
+          this.logger.log(
+            `Timeout waiting for log <span class="math-inline">\{newLogIndex\} \("</span>{commandString}") to apply. Last applied: ${this.lastApplied}`
+          );
+          reject(new Error(`Timeout waiting for command at index ${newLogIndex} to be applied`));
+        }
+        timeWaitedMs += checkIntervalMs;
+      }, checkIntervalMs);
+    });
   }
 
   public appendKVCommand(command: string) {

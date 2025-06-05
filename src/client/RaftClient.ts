@@ -122,12 +122,22 @@ export class RaftClient {
         console.log(`${i + 1}. Term: ${logs[i].term} - Command: ${logs[i].command}`);
       }
     } catch (err: any) {
-      const leaderHintId = err?.response?.data?.leader;
-      const leaderHint = err?.response?.data?.address;
-      if (leaderHint && leaderHintId) {
-        this.currentLeaderAddress = leaderHint;
-        this.currentLeaderId = leaderHintId;
-        await this.getLog();
+      if (axios.isAxiosError(err)) {
+        const status = err.response?.status;
+        const leaderHintId = err.response?.data?.leader;
+        const leaderHint = err.response?.data?.address;
+
+        if (status === 403 && leaderHint && leaderHintId) {
+          console.log(`Redirecting to leader ${leaderHintId} at ${leaderHint}`);
+          this.currentLeaderAddress = leaderHint;
+          this.currentLeaderId = leaderHintId;
+          await this.getLog();
+          return;
+        }
+
+        console.log(`Get log failed with status ${status}`);
+      } else {
+        console.log('Unexpected error:', err);
       }
     }
   }
@@ -142,12 +152,22 @@ export class RaftClient {
       const res = await axios.get(`http://${address}/ping`);
       console.log(`Ping to ${address}:`, res.data);
     } catch (err: any) {
-      const leaderHintId = err?.response?.data?.leader;
-      const leaderHint = err?.response?.data?.address;
-      if (leaderHint && leaderHintId) {
-        this.currentLeaderAddress = leaderHint;
-        this.currentLeaderId = leaderHintId;
-        await this.ping();
+      if (axios.isAxiosError(err)) {
+        const status = err.response?.status;
+        const leaderHintId = err.response?.data?.leader;
+        const leaderHint = err.response?.data?.address;
+
+        if (status === 403 && leaderHint && leaderHintId) {
+          console.log(`Redirecting to leader ${leaderHintId} at ${leaderHint}`);
+          this.currentLeaderAddress = leaderHint;
+          this.currentLeaderId = leaderHintId;
+          await this.ping();
+          return;
+        }
+
+        console.log(`Ping failed with status ${status}`);
+      } else {
+        console.log('Unexpected error:', err);
       }
     }
   }

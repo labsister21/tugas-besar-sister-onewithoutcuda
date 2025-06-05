@@ -19,7 +19,7 @@ const server = new jayson.Server({
       candidateId,
       candidateAddress,
       lastLogIndex,
-      lastLogIndex
+      lastLogTerm
     );
     return { voteGranted };
   },

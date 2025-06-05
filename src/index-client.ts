@@ -39,7 +39,7 @@ const client = new RaftClient();
       switch (cmd) {
         case 'set':
         case 'append':
-          await client.sendCommand(cmd, args[0], args[1]);
+          await client.sendCommand(cmd, args[0], args[1] ?? '');
           break;
         case 'get':
         case 'strln':

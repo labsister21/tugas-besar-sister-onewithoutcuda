@@ -4,7 +4,7 @@ const LEADER_API_BASE_URL = 'http://node2:8082';
 const NODE_TO_REMOVE_ADDRESS = 'node3:8083';
 const NODE_TO_ADD_ADDRESS = 'node5:8085';
 
-const HTTP_REQUEST_TIMEOUT = 2000;
+const HTTP_REQUEST_TIMEOUT = 7000;
 
 function logWithTimestamp(message: string, ...optionalParams: any[]) {
   const timestamp = new Date().toISOString();
@@ -84,6 +84,8 @@ async function executeClusterChanges(): Promise<void> {
   await sendApiCommand('CLUSTER-REMOVE', `${LEADER_API_BASE_URL}/remove-member`, {
     address: NODE_TO_REMOVE_ADDRESS
   });
+
+  await new Promise((resolve) => setTimeout(resolve, 10000));
   await sendApiCommand('CLUSTER-ADD', `${LEADER_API_BASE_URL}/join-cluster`, {
     address: NODE_TO_ADD_ADDRESS
   });
@@ -93,10 +95,7 @@ async function executeClusterChanges(): Promise<void> {
 async function runConcurrentActionsTest() {
   logWithTimestamp('Memulai tes aksi konkuren...');
 
-  const results = await Promise.allSettled([
-    executeClusterChanges(),
-    executeClientCommands(), 
-  ]);
+  const results = await Promise.allSettled([executeClusterChanges(), executeClientCommands()]);
 
   logWithTimestamp('\nSemua aksi yang diminta telah dikirim.');
   results.forEach((result, index) => {
@@ -109,7 +108,7 @@ async function runConcurrentActionsTest() {
   });
 
   logWithTimestamp('\nMenunggu beberapa detik untuk stabilisasi cluster potensial...');
-  await new Promise((resolve) => setTimeout(resolve, 5000)); // Tunggu 5 detik
+  await new Promise((resolve) => setTimeout(resolve, 5000));
 
   logWithTimestamp('\n--- Verifikasi Data dan Status Cluster (setelah semua selesai) ---');
   try {

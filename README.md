@@ -12,7 +12,15 @@ docker run --rm --name node3 --net raft --cap-add=NET_ADMIN raft-server node3 80
 
 docker run --rm --name node4 --net raft --cap-add=NET_ADMIN raft-server node4 8084 node4 node1:8081,node2:8082,node3:8083
 
+docker run --rm --name node5 --net raft --cap-add=NET_ADMIN raft-server node5 8085 node5
+
+docker run --rm --name node6 --net raft --cap-add=NET_ADMIN raft-server node6 8086 node6
+
 docker run -it --rm --name raft_client --net raft --cap-add=NET_ADMIN raft-client node1:8081
+
+docker run -it --rm --name raft_client --net raft --cap-add=NET_ADMIN raft-client node1:8081
+
+docker run -it --rm --name raft_client_2 --net raft --cap-add=NET_ADMIN raft-client node1:8081
 
 docker run -it --rm --name raft_client --net sister-konsensus_raftnet --cap-add=NET_ADMIN raft-client node1:8081
 

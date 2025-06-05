@@ -25,7 +25,7 @@ async function sendApiCommand(clientName: string, payload: Command): Promise<any
   try {
     const response = await axios.post(LEADER_API_URL, payload, {
       headers: { 'Content-Type': 'application/json' },
-      timeout: 1000
+      timeout: 7000
     });
     logWithTimestamp(
       `[${clientName}] Respons untuk ${payload.command} ${payload.key || ''}:`,
