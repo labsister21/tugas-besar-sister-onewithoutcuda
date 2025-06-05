@@ -1,4 +1,4 @@
-network create raft
+docker network create raft
 
 docker build -f Dockerfile.client -t raft-client .
 
@@ -10,7 +10,7 @@ docker run --rm --name node2 --net raft --cap-add=NET_ADMIN raft-server node2 80
 
 docker run --rm --name node3 --net raft --cap-add=NET_ADMIN raft-server node3 8083 node3 node1:8081,node2:8082,node4:8084
 
- docker run --rm --name node4 --net raft --cap-add=NET_ADMIN raft-server node4 8083 node4 node1:8081,node2:8082,node3:8083
+docker run --rm --name node4 --net raft --cap-add=NET_ADMIN raft-server node4 8084 node4 node1:8081,node2:8082,node3:8083
 
 docker run -it --rm --name raft_client --net raft --cap-add=NET_ADMIN raft-client node1:8081
 
@@ -22,3 +22,9 @@ docker exec -it node3 sh
 docker exec -it node4 sh
 
 tc qdisc show dev lo
+
+
+docker run --rm --entrypoint /bin/sh --network raft -v "$(pwd):/usr/src/app" -w /usr/src/app node:23-alpine -c "npm install && ./node_modules/.bin/ts-node direct_test.ts"
+
+
+docker run --rm --entrypoint /bin/sh --network raft -v "$(pwd):/usr/src/app" -w /usr/src/app node:23-alpine -c "npm install && ./node_modules/.bin/ts-node direct_test_2.ts"

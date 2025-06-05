@@ -27,8 +27,8 @@ export class RaftNode {
   private nextIndex: Map<string, number> = new Map();
   private matchIndex: Map<string, number> = new Map();
 
-  private readonly BASE_ELECTION_TIMEOUT_MIN = 150;
-  private readonly BASE_ELECTION_TIMEOUT_MAX = 300;
+  private readonly BASE_ELECTION_TIMEOUT_MIN = 400;
+  private readonly BASE_ELECTION_TIMEOUT_MAX = 800;
   private electionBackoffMultiplier = 1;
 
   private showHeartbeat: boolean = false;
@@ -68,7 +68,13 @@ export class RaftNode {
     this.requestVotes();
   }
 
-  public receiveVoteRequest(term: number, candidateId: string, candidateAddress: string): boolean {
+  public receiveVoteRequest(
+    term: number,
+    candidateId: string,
+    candidateAddress: string,
+    candidateLastLogIndex: number, // PARAMETER BARU
+    candidateLastLogTerm: number // PARAMETER BARU
+  ): boolean {
     if (!this.peers.has(candidateAddress)) {
       return false;
     }
@@ -80,13 +86,31 @@ export class RaftNode {
       this.role = 'FOLLOWER';
     }
 
-    if (this.votedFor === null || this.votedFor === candidateId) {
+    const myLastLogIndex = this.log.length - 1;
+    const myLastLogTerm = myLastLogIndex >= 0 ? this.log[myLastLogIndex].term : 0;
+
+    let voteGranted = false;
+    if (candidateLastLogTerm > myLastLogTerm) {
+      voteGranted = true;
+    } else if (candidateLastLogTerm === myLastLogTerm) {
+      if (candidateLastLogIndex >= myLastLogIndex) {
+        voteGranted = true;
+      }
+    }
+
+    if (voteGranted && (this.votedFor === null || this.votedFor === candidateId)) {
       this.votedFor = candidateId;
       this.startElectionTimeout();
-      this.logger.log(`Voted for ${candidateId} in term ${term}`);
+      this.logger.log(`Voted for ${candidateId} in term ${term} (Log up-to-date check passed)`);
       return true;
     }
 
+    this.logger.log(
+      `Denied vote for ${candidateId} in term ${term}. ` +
+        `MyLastLogTerm: ${myLastLogTerm}, CandLastLogTerm: ${candidateLastLogTerm}. ` +
+        `MyLastLogIndex: ${myLastLogIndex}, CandLastLogIndex: ${candidateLastLogIndex}. ` +
+        `VotedFor: ${this.votedFor}, VoteGrantedSoFar: ${voteGranted}`
+    );
     return false;
   }
 
@@ -100,6 +124,11 @@ export class RaftNode {
       this.nextIndex.set(peer, this.log.length);
       this.matchIndex.set(peer, -1);
     }
+
+    // this.log.push({ term: this.term, command: 'no-op' });
+    // this.logger.log(
+    //   `Appended no-op entry for term ${this.term} upon becoming leader. Log length is now ${this.log.length}.`
+    // );
 
     this.startHeartbeat();
   }
@@ -119,6 +148,7 @@ export class RaftNode {
 
         if (entries.length > 0) {
           this.logger.log(`Heartbeat: Sending ${entries.length} log entries to ${peer}`);
+          console.log('before:', next);
         } else {
           if (this.showHeartbeat) {
             this.logger.log(`Heartbeat: No new entries to send to ${peer}`);
@@ -126,25 +156,29 @@ export class RaftNode {
         }
 
         axios
-          .post(`http://${peer}/rpc`, {
-            jsonrpc: '2.0',
-            method: 'appendEntries',
-            params: [
-              {
-                term: this.term,
-                leaderId: this.id,
-                leaderAddress: this.selfAddress,
-                prevLogIndex,
-                prevLogTerm,
-                entries,
-                leaderCommit: this.commitIndex
-              }
-            ],
-            id: 1
-          })
+          .post(
+            `http://${peer}/rpc`,
+            {
+              jsonrpc: '2.0',
+              method: 'appendEntries',
+              params: [
+                {
+                  term: this.term,
+                  leaderId: this.id,
+                  leaderAddress: this.selfAddress,
+                  prevLogIndex,
+                  prevLogTerm,
+                  entries,
+                  leaderCommit: this.commitIndex
+                }
+              ],
+              id: 1
+            },
+            // { timeout: 200 }
+          )
           .then((res) => {
+            this.failedPeerCounts.set(peer, 0);
             if (res.data.result?.success) {
-              this.failedPeerCounts.set(peer, 0);
               this.nextIndex.set(peer, next + entries.length);
               this.matchIndex.set(peer, next + entries.length - 1);
               this.checkCommit();
@@ -157,10 +191,12 @@ export class RaftNode {
             this.failedPeerCounts.set(peer, fails);
             if (fails === this.MAX_FAILED_HEARTBEATS) {
               this.logger.log(`Peer ${peer} is likely down (missed ${fails} heartbeats)`);
+              // this.nextIndex.set(peer, 0);
+              // this.matchIndex.set(peer, -1);
             }
           });
       }
-    }, 50);
+    }, 100);
   }
 
   private clearTimeouts() {
@@ -251,8 +287,9 @@ export class RaftNode {
     //     this.logger.log(`Applied log: removeMember ${peer}`);
     //   }
     // }
-
-    if (cmd === 'config') {
+    if (cmd === 'no-op') {
+      this.logger.log(`Applied log: no-op (term: ${entry.term}, index: ${this.lastApplied})`);
+    } else if (cmd === 'config') {
       const [stage, ...peers] = args;
       const peersStr = peers.join(':');
 
@@ -297,21 +334,15 @@ export class RaftNode {
         this.jointConfig.clear();
         this.newConfig.clear();
       }
-    }
-
-    if (cmd === 'set') {
+    } else if (cmd === 'set') {
       const [k, v] = args.join(':').split(':');
       this.kvStore.set(k, v);
       this.logger.log(`Applied log: set ${k} = ${v}`);
-    }
-
-    if (cmd === 'del') {
+    } else if (cmd === 'del') {
       const key = args.join(':');
       this.kvStore.del(key);
       this.logger.log(`Applied log: del ${key}`);
-    }
-
-    if (cmd === 'append') {
+    } else if (cmd === 'append') {
       const [k, v] = args.join(':').split(':');
       this.kvStore.append(k, v);
       this.logger.log(`Applied log: append ${k} += ${v}`);
@@ -423,25 +454,29 @@ export class RaftNode {
       }
 
       axios
-        .post(`http://${peer}/rpc`, {
-          jsonrpc: '2.0',
-          method: 'appendEntries',
-          params: [
-            {
-              term: this.term,
-              leaderId: this.id,
-              leaderAddress: this.selfAddress,
-              prevLogIndex,
-              prevLogTerm,
-              entries,
-              leaderCommit: this.commitIndex
-            }
-          ],
-          id: 1
-        })
+        .post(
+          `http://${peer}/rpc`,
+          {
+            jsonrpc: '2.0',
+            method: 'appendEntries',
+            params: [
+              {
+                term: this.term,
+                leaderId: this.id,
+                leaderAddress: this.selfAddress,
+                prevLogIndex,
+                prevLogTerm,
+                entries,
+                leaderCommit: this.commitIndex
+              }
+            ],
+            id: 1
+          },
+          // { timeout: 200 }
+        )
         .then((res) => {
+          this.failedPeerCounts.set(peer, 0);
           if (res.data.result?.success) {
-            this.failedPeerCounts.set(peer, 0);
             this.nextIndex.set(peer, next + entries.length);
             this.matchIndex.set(peer, next + entries.length - 1);
             this.checkCommit();
@@ -454,6 +489,8 @@ export class RaftNode {
           this.failedPeerCounts.set(peer, fails);
           if (fails === this.MAX_FAILED_HEARTBEATS) {
             this.logger.log(`Peer ${peer} is likely down (missed ${fails} heartbeats)`);
+            // this.nextIndex.set(peer, 0);
+            // this.matchIndex.set(peer, -1);
           }
         });
     }
@@ -480,6 +517,8 @@ export class RaftNode {
       params;
 
     if (term < this.term) return false;
+
+    this.startElectionTimeout();
 
     if (entries.length > 0) {
       this.logger.log(
@@ -530,8 +569,6 @@ export class RaftNode {
       }
     }
 
-    this.startElectionTimeout();
-
     return true;
   }
 
@@ -540,15 +577,30 @@ export class RaftNode {
     const peersArray = [...this.peers];
     const totalPeers = peersArray.length;
 
+    const lastLogIndex = this.log.length - 1;
+    const lastLogTerm = lastLogIndex >= 0 ? this.log[lastLogIndex].term : 0;
+
     await Promise.all(
       peersArray.map(async (peer) => {
         try {
-          const res = await axios.post(`http://${peer}/rpc`, {
-            jsonrpc: '2.0',
-            method: 'requestVote',
-            params: [{ term: this.term, candidateId: this.id, candidateAddress: this.selfAddress }],
-            id: 1
-          });
+          const res = await axios.post(
+            `http://${peer}/rpc`,
+            {
+              jsonrpc: '2.0',
+              method: 'requestVote',
+              params: [
+                {
+                  term: this.term,
+                  candidateId: this.id,
+                  candidateAddress: this.selfAddress,
+                  lastLogIndex: lastLogIndex,
+                  lastLogTerm: lastLogTerm
+                }
+              ],
+              id: 1
+            },
+            // { timeout: 200 }
+          );
           if (res.data.result?.voteGranted) grantedVotes++;
         } catch {
           this.logger.log(`Failed to request vote from ${peer}`);
@@ -564,7 +616,7 @@ export class RaftNode {
       this.becomeLeader();
     } else {
       this.logger.log(`Election failed (got ${grantedVotes}/${totalPeers + 1}) — retrying`);
-      this.electionBackoffMultiplier *= 2;
+      // this.electionBackoffMultiplier *= 2;
       this.role = 'FOLLOWER';
       this.startElectionTimeout();
     }
