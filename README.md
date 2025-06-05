@@ -17,7 +17,7 @@ The distributed application built on top of this Raft implementation is a key-va
 
 - `set <key> <value>`: Sets a key to a string value.
 - `get <key>`: Retrieves the string value of a key. Returns an empty string if the key doesn't exist.
-- `del <key>`: Deletes a key-value pair and returns the deleted value. Returns an empty string if the key didn't exist[cite: 77].
+- `del <key>`: Deletes a key-value pair and returns the deleted value. Returns an empty string if the key didn't exist.
 - `append <key> <value>`: Appends a string value to an existing key's value. If the key doesn't exist, it's created with an empty string before appending.
 - `strln <key>`: Returns the length of the string value associated with a key.
 - `ping`: Checks connectivity with the server; the server responds with "PONG".
@@ -39,7 +39,7 @@ The system is built around a `RaftNode` class that encapsulates the Raft consens
 
 ### Node Roles and Terms
 
-Nodes operate in one of three roles: **Follower**, **Candidate**, or **Leader**. The system progresses in **terms**, each identified by a monotonically increasing integer. Each term has at most one leader[cite: 112].
+Nodes operate in one of three roles: **Follower**, **Candidate**, or **Leader**. The system progresses in **terms**, each identified by a monotonically increasing integer. Each term has at most one leader.
 
 ### Heartbeats
 
@@ -285,7 +285,7 @@ Unit tests are implemented using Jest.
 | :------- | :----------------- |
 | 13522021 | Filbert            |
 | 13522111 | Ivan Hendrawan Tan |
-| 13522117 | Mesach Hermasendro |
+| 13522117 | Mesach Harmasendro |
 
 ## References
 
