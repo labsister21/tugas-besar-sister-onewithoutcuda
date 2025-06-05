@@ -238,6 +238,7 @@ export class RaftClient {
   }
 
   async sendCommand(command: string, key?: string, value?: string): Promise<void> {
+    if (value === undefined) value = '';
     const payload = { command, key, value };
 
     if (!this.currentLeaderAddress) {
@@ -276,7 +277,8 @@ export class RaftClient {
       try {
         const res = await axios.post(`http://${this.currentLeaderAddress}/execute`, payload);
         if (res.data.result !== undefined) {
-          console.log('→', res.data.result);
+          const value = res.data.result ?? ''
+          console.log('→', value)
           return;
         }
       } catch (err: any) {
