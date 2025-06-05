@@ -1,6 +1,6 @@
 import axios, { AxiosError } from 'axios';
 
-const LEADER_API_URL = 'http://node4:8084/execute';
+const LEADER_API_URL = 'http://node1:8081/execute';
 
 interface Command {
   command: string;
