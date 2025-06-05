@@ -33,6 +33,31 @@ export class RaftNode {
 
   private showHeartbeat: boolean = false;
 
+    public setTermForTest(term: number) {
+    this.term = term;
+  }
+  public setLogForTest(log: LogEntry[]) {
+    this.log = [...log];
+    this.lastApplied = log.length - 1;
+    this.commitIndex = log.length - 1;
+  }
+  public applyLogEntryForTest(entry: LogEntry) {
+    this.applyLogEntry(entry);
+  }
+  public becomeLeaderForTest() {
+    this.term += 1;
+    this.becomeLeader();
+  } 
+  public getCommitIndexForTest(): number {
+    return this.commitIndex;
+  }
+  public getShowHeartbeatForTest(): boolean {
+    return this.showHeartbeat;
+  }
+  public getVotedForForTest(): string | null {
+    return this.votedFor;
+  }
+
   constructor(
     private readonly id: string,
     private readonly kvStore: KVStore,
